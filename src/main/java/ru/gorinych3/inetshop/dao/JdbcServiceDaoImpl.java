@@ -1,7 +1,8 @@
 package ru.gorinych3.inetshop.dao;
 
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import ru.gorinych3.inetshop.connectionmanager.ConnectionManagerJdbcImpl;
 import ru.gorinych3.inetshop.dto.Client;
 
@@ -14,7 +15,7 @@ import java.util.Objects;
 @SuppressWarnings("SqlResolve")
 public class JdbcServiceDaoImpl implements JdbcServiceDao {
 
-    private static final Logger LOGGER = LogManager.getLogger(JdbcServiceDaoImpl.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger(JdbcServiceDaoImpl.class);
 
     @Override
     public boolean cleanOldOrders() {

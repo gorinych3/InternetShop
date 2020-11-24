@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Appenders>
+        <File name="file" fileName="logs/log4j/log.log">
+            <PatternLayout>
+                <Pattern>%d{yyyy-MM-dd HH:mm:ss} %-5p %m%nw</Pattern>
+            </PatternLayout>
+        </File>
+        <RollingFile name="RollingFile" fileName="logs/log4j/log2.log" filePattern="logs/log4j/log2_%d{yyyy-MM-dd}.log">
+            <PatternLayout>
+                <Pattern>%d{yyyy-MM-dd HH;mm:ss} %-5p method: %X{oper}  str: %-26logger{26}:%L %m%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="20"/>
+        </RollingFile>
+        <Console name="stdout" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH;mm:ss} %-5p method: %X{oper}  str: %-26logger{26}:%L %m%n"/>
+        </Console>
+        <JDBC name="db" tableName="APP_LOGS">
+            <DriverManager connectionString="jdbc:postgresql://localhost:5432/innoInetShop" driverClassName="org.postgresql.Driver" username="postgres" password="sa"/>
+            <Column name="LOG_ID" pattern="%u" isUnicode="false"/>
+            <Column name="INSERT_DATE" isEventTimestamp="true" isUnicode="false"/>
+            <Column name="LOGGER" pattern="%logger" isUnicode="false"/>
+            <Column name="LOG_LEVEL" pattern="%level" isUnicode="false"/>
+            <Column name="MESSAGE" pattern="%m" isUnicode="false"/>
+            <Column name="EXCEPTION" pattern="%throwable" isUnicode="false"/>
+        </JDBC>
+    </Appenders>
+    <Loggers>
+        <Root level="trace">
+            <AppenderRef ref="file" level="DEBUG"/>
+            <AppenderRef ref="stdout" level="INFO"/>
+        </Root>
+        <Logger name="ru.gorinych3.inetshop.Main" level="debug" additivity="false">
+            <AppenderRef ref="RollingFile" level="INFO"/>
+            <AppenderRef ref="stdout" level="DEBUG"/>
+            <AppenderRef ref="db" level="INFO"/>
+        </Logger>
+    </Loggers>
+</Configuration>

@@ -1,7 +1,8 @@
 package ru.gorinych3.inetshop;
 
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.slf4j.MDC;
 import ru.gorinych3.inetshop.dao.*;
 import ru.gorinych3.inetshop.dto.Client;
 import ru.gorinych3.inetshop.dto.Item;
@@ -34,6 +35,8 @@ public class Main {
 
     public static void main(String[] args) throws SQLException {
 
+
+
         JdbcItemDao jdbcItemDao = new JdbcItemDaoImpl();
         JdbcOrderDao jdbcOrderDao = new JdbcOrderDaoImpl(jdbcItemDao);
         JdbcServiceDao jdbcServiceDao = new JdbcServiceDaoImpl();
@@ -43,11 +46,12 @@ public class Main {
         itemsMethod(jdbcItemDao);
         ordersMethod(jdbcOrderDao, jdbcItemDao, jdbcServiceDao);
 
-        LOGGER.info(jdbcServiceDao.cleanOldOrders());
+        LOGGER.info("cleanOldOrders {}", jdbcServiceDao.cleanOldOrders());
 
     }
 
     public static void serviceMethod(JdbcServiceDao jdbcServiceDao) {
+        MDC.put("oper", "serviceMethod");
         Client newClient = new Client();
         newClient.setFirstName("Ivan");
         newClient.setLastName("Sidorov");
@@ -56,41 +60,36 @@ public class Main {
         newClient.setRegistrationDate(LocalDateTime.now());
 
         Client client = jdbcServiceDao.addNewClient(newClient, "login1", "password1");
-        LOGGER.info("Client client =" + client.toString());
-        LOGGER.info("=========================================================================" + "\n");
+
+        LOGGER.info("Client client = {}", client);
 
         printList(jdbcServiceDao.getAllClients());
 
-        LOGGER.info("changeUserPassword: "
-                + jdbcServiceDao.changeUserPassword(client.getClientId(), "changedPassword"));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("changeUserPassword: {}",
+                jdbcServiceDao.changeUserPassword(client.getClientId(), "changedPassword"));
 
-        LOGGER.info("checkUserRegistrationData: "
-                + jdbcServiceDao.checkUserRegistrationData(client.getClientId(), "login1", "password1"));
-        LOGGER.info("checkUserRegistrationData: "
-                + jdbcServiceDao.checkUserRegistrationData(client.getClientId(), "login1", "changedPassword"));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("checkUserRegistrationData: {}",
+                jdbcServiceDao.checkUserRegistrationData(client.getClientId(), "login1", "password1"));
+        LOGGER.info("checkUserRegistrationData: {}",
+                jdbcServiceDao.checkUserRegistrationData(client.getClientId(), "login1", "changedPassword"));
 
         Client clientByIdTrue = jdbcServiceDao.getClientById(new BigDecimal("2"));
-        LOGGER.info("clientByIdTrue: " + clientByIdTrue.toString());
+        LOGGER.info("clientByIdTrue: {}", clientByIdTrue);
         Client clientByIdFalse = jdbcServiceDao.getClientById(new BigDecimal("789"));
-        LOGGER.info("clientByIdFalse: " + clientByIdFalse.toString());
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("clientByIdFalse: {}", clientByIdFalse);
 
-        LOGGER.info("deleteClient: " + jdbcServiceDao.deleteClient(new BigDecimal("156")));
-        LOGGER.info("deleteClient: " + jdbcServiceDao.deleteClient(new BigDecimal("2")));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("deleteClient: {}", jdbcServiceDao.deleteClient(new BigDecimal("156")));
+        LOGGER.info("deleteClient: {}", jdbcServiceDao.deleteClient(new BigDecimal("2")));
 
-        LOGGER.info("cleanOldOrders: " + jdbcServiceDao.cleanOldOrders());
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("cleanOldOrders: {}", jdbcServiceDao.cleanOldOrders());
     }
 
     public static void ordersMethod(JdbcOrderDao jdbcOrderDao, JdbcItemDao jdbcItemDao, JdbcServiceDao jdbcServiceDao) {
+        MDC.put("oper", "ordersMethod");
 
         Client client = jdbcServiceDao.getClientById(new BigDecimal("3"));
 
         List<Item> items = jdbcItemDao.getAllItems();
-        //printList(items);
 
         Order order = new Order();
         order.setStatus("N");
@@ -98,8 +97,7 @@ public class Main {
         order.setClientId(client.getClientId());
         order.setItems(items);
 
-        LOGGER.info("addOrder" + jdbcOrderDao.addOrder(order));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("addOrder: {}", jdbcOrderDao.addOrder(order));
 
         printList(jdbcOrderDao.getAllOrders());
 
@@ -109,7 +107,6 @@ public class Main {
         order.setStatus("E");
         LOGGER.info("changeOrder");
         jdbcOrderDao.changeOrder(order);
-
         printList(jdbcOrderDao.getAllOrders());
 
         jdbcItemDao.addItem(new Item(
@@ -123,16 +120,12 @@ public class Main {
 
         jdbcOrderDao.addItem2Order(jdbcItemDao.getItemById(new BigDecimal("5")), order.getOrderId());
 
-        LOGGER.info("Order before adding new item " + jdbcOrderDao.getOrderById(order.getOrderId()));
-        LOGGER.info("=========================================================================" + "\n");
-
+        LOGGER.info("Order before adding new item {}", jdbcOrderDao.getOrderById(order.getOrderId()));
 
         boolean resDeleteItem = jdbcOrderDao.deleteItemFromOrder(order.getOrderId(), new BigDecimal("3"));
-        LOGGER.info("deleteItemFromOrder = " + resDeleteItem + "    " + jdbcOrderDao.getOrderById(order.getOrderId()));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("deleteItemFromOrder = {}  {}", resDeleteItem, jdbcOrderDao.getOrderById(order.getOrderId()));
 
         printList(jdbcOrderDao.getOrderByClientId(new BigDecimal("3")));
-        LOGGER.info("=========================================================================" + "\n");
 
         LOGGER.info("deleteOrder");
         jdbcOrderDao.deleteOrder(order.getOrderId());
@@ -141,12 +134,13 @@ public class Main {
     }
 
     public static void itemsMethod(JdbcItemDao jdbcItemDao) {
+        MDC.put("oper", "itemsMethod");
+
         printList(jdbcItemDao.getAllItems());
 
-        LOGGER.info("getItemById: " + jdbcItemDao.getItemById(new BigDecimal(String.valueOf(2))));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("getItemById: {}", jdbcItemDao.getItemById(new BigDecimal(String.valueOf(2))));
 
-        LOGGER.info("addItem: " + jdbcItemDao.addItem(new Item(
+        LOGGER.info("addItem: {}", jdbcItemDao.addItem(new Item(
                 "notepad",
                 "чо там описывать?",
                 "tech",
@@ -155,8 +149,8 @@ public class Main {
                 null,
                 "N"
         )));
-        LOGGER.info("=========================================================================" + "\n");
-        LOGGER.info("updateItem: " + jdbcItemDao.updateItem(new Item(
+
+        LOGGER.info("updateItem: {}", jdbcItemDao.updateItem(new Item(
                 new BigDecimal(String.valueOf(2)),
                 "notepad",
                 "чо там описывать?",
@@ -166,10 +160,8 @@ public class Main {
                 LocalDateTime.now(),
                 "S"
         )));
-        LOGGER.info("=========================================================================" + "\n");
 
-        LOGGER.info("deleteItemById: " + jdbcItemDao.deleteItemById(new BigDecimal(String.valueOf(2))));
-        LOGGER.info("=========================================================================" + "\n");
+        LOGGER.info("deleteItemById: {}", jdbcItemDao.deleteItemById(new BigDecimal(String.valueOf(2))));
 
         printList(jdbcItemDao.getAllItems());
     }
@@ -177,8 +169,7 @@ public class Main {
     public static <T> void printList(List<T> objects) {
         LOGGER.info("Show List: ");
         for (T t : objects) {
-            LOGGER.info(t.toString());
+            LOGGER.info(t);
         }
-        LOGGER.info("=========================================================================" + "\n");
     }
 }
