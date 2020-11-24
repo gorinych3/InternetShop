@@ -82,6 +82,15 @@ public class DBUtil {
                     + "id bigserial not null constraint orderitems_pk primary key,"
                     + "orderId bigint not null,"
                     + "itemId bigint not null);"
+                    + "\n"
+                    + "DROP TABLE IF EXISTS app_logs;"
+                    + "create table APP_LOGS(\n"
+                    + "LOG_ID varchar(100) primary key,\n"
+                    + "INSERT_DATE timestamp,\n"
+                    + "LOGGER varchar(100),\n"
+                    + "LOG_LEVEL varchar(30),\n"
+                    + "MESSAGE TEXT,\n"
+                    + "EXCEPTION TEXT);"
                     + "\n");
 
         }

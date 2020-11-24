@@ -1,7 +1,8 @@
 package ru.gorinych3.inetshop.dao;
 
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.slf4j.MDC;
 import ru.gorinych3.inetshop.connectionmanager.ConnectionManagerJdbcImpl;
 import ru.gorinych3.inetshop.dto.Item;
 
@@ -41,6 +42,7 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
 
     @Override
     public Item getItemById(BigDecimal itemId) {
+
         try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
                      "SELECT * FROM items where itemId = (?)")) {
@@ -58,6 +60,7 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
 
     @Override
     public Item getItemByName(String itemName) {
+
         try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
                      "SELECT * FROM items where itemName = (?)")) {
@@ -74,6 +77,7 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
 
     @Override
     public Item addItem(Item item) {
+
         try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
                      "INSERT INTO items values (DEFAULT, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
@@ -98,6 +102,7 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
 
     @Override
     public Item updateItem(Item item) {
+
         try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
                      "UPDATE items SET itemName = (?), description = (?), itemCategory = (?)," +
@@ -121,6 +126,7 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
 
     @Override
     public boolean deleteItemById(BigDecimal itemId) {
+
         try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
                      "DELETE FROM items where itemId = (?)")) {
@@ -135,7 +141,6 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     }
 
     private Item initItem(ResultSet resultSet) throws SQLException {
-
         Item item = new Item();
         item.setItemId(resultSet.getBigDecimal("itemId"));
         item.setItemName(resultSet.getString("itemName"));
