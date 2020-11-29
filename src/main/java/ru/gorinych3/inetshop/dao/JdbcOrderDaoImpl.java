@@ -3,12 +3,10 @@ package ru.gorinych3.inetshop.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import ru.gorinych3.inetshop.connectionmanager.ConnectionManagerJdbcImpl;
+import ru.gorinych3.inetshop.connectionmanager.ConnectionManager;
 import ru.gorinych3.inetshop.dto.Item;
 import ru.gorinych3.inetshop.dto.Order;
 
-import javax.sql.rowset.CachedRowSet;
-import javax.sql.rowset.RowSetProvider;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -20,24 +18,39 @@ import java.util.Objects;
 @SuppressWarnings("SqlResolve")
 public class JdbcOrderDaoImpl implements JdbcOrderDao {
 
+    public static final String SELECT_ALL_FROM_ORDERS = "SELECT * FROM orders";
+    public static final String SELECT_ALL_FROM_ORDERS_BY_STATUS = "SELECT * FROM orders WHERE status = (?)";
+    public static final String SELECT_FROM_ORDERS_BY_ID = "SELECT * FROM orders WHERE orderId = (?)";
+    public static final String SELECT_ALL_FROM_ORDERS_BY_CLIENT_ID = "SELECT * FROM orders WHERE clientId = (?)";
+    public static final String INSERT_INTO_ORDERS = "INSERT INTO orders VALUES (DEFAULT, ?, ?, ?, ?, ?, ?)";
+    public static final String INSERT_INTO_ORDERITEMS = "INSERT INTO orderItems VALUES(DEFAULT, ?, ?)";
+    public static final String DELETE_FROM_ORDERITEMS = "DELETE FROM orderItems where orderId = (?) and itemId = (?)";
+    public static final String UPDATE_ORDERS = "UPDATE orders SET countItems = (?), sum = (?), status = (?)," +
+            "openDate = (?), executeDate = (?), clientId = (?) where orderId = (?)";
+    public static final String DELETE_FROM_ORDER_BY_ID = "DELETE FROM orders where orderId = (?)";
+    public static final String DELETE_FROM_ORDERITEMS_BY_ORDER_ID = "DELETE FROM orderItems where orderId = (?)";
+    public static final String SELECT_ALL_FROM_ORDERITEMS_BY_ORDER_ID = "SELECT * FROM orderItems WHERE orderId = (?)";
+
     private static final Logger LOGGER = LogManager.getLogger(JdbcOrderDaoImpl.class);
+    private final ConnectionManager connectionManager;
 
     private final JdbcItemDao jdbcItemDao;
 
-    public JdbcOrderDaoImpl(JdbcItemDao jdbcItemDao) {
+    public JdbcOrderDaoImpl(JdbcItemDao jdbcItemDao, ConnectionManager connectionManager) {
         this.jdbcItemDao = jdbcItemDao;
+        this.connectionManager = connectionManager;
     }
 
     @Override
     public List<Order> getAllOrders() {
         List<Order> orders = new ArrayList<>();
 
-        try (CachedRowSet cachedRowSet = RowSetProvider.newFactory().createCachedRowSet();
-             Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection()) {
-            cachedRowSet.setCommand("SELECT * FROM orders");
-            cachedRowSet.execute(connection);
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FROM_ORDERS)) {
 
-            return initOrderList(orders, cachedRowSet);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return initOrderList(orders, resultSet);
+            }
         } catch (SQLException exception) {
             LOGGER.error(exception.getMessage());
         }
@@ -48,14 +61,13 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
     public List<Order> getOrdersByStatus(String status) {
         List<Order> orders = new ArrayList<>();
 
-        try (CachedRowSet cachedRowSet = RowSetProvider.newFactory().createCachedRowSet();
-             Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM orders WHERE status = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FROM_ORDERS_BY_STATUS)) {
 
             preparedStatement.setString(1, status);
-            cachedRowSet.populate(preparedStatement.executeQuery());
-
-            return initOrderList(orders, cachedRowSet);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return initOrderList(orders, resultSet);
+            }
         } catch (SQLException exception) {
             LOGGER.error(exception.getMessage());
         }
@@ -66,30 +78,30 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
     @Override
     public Order getOrderById(BigDecimal orderId) {
         Order order = new Order();
-        try (CachedRowSet cachedRowSet = RowSetProvider.newFactory().createCachedRowSet();
-             Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM orders WHERE orderId = (?)")) {
-
-            return initOrder(orderId, order, cachedRowSet, preparedStatement);
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_FROM_ORDERS_BY_ID)) {
+            preparedStatement.setBigDecimal(1, orderId);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                return initOrder(resultSet);
+            }
         } catch (SQLException exception) {
             LOGGER.error(exception.getMessage());
         }
 
-        return order;
+        return new Order();
     }
 
     @Override
     public List<Order> getOrderByClientId(BigDecimal clientId) {
         List<Order> orders = new ArrayList<>();
 
-        try (CachedRowSet cachedRowSet = RowSetProvider.newFactory().createCachedRowSet();
-             Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM orders WHERE clientId = (?)")) {
-
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FROM_ORDERS_BY_CLIENT_ID)) {
             preparedStatement.setBigDecimal(1, clientId);
-            cachedRowSet.populate(preparedStatement.executeQuery());
-
-            return initOrderList(orders, cachedRowSet);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return initOrderList(orders, resultSet);
+            }
         } catch (SQLException exception) {
             LOGGER.error(exception.getMessage());
         }
@@ -106,11 +118,10 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
      */
     @Override
     public Order addOrder(Order order) {
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
+        try (Connection connection = connectionManager.getConnection();
              PreparedStatement psOrders = connection.prepareStatement(
-                     "INSERT INTO orders VALUES (DEFAULT, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
-             PreparedStatement psOrderItems = connection.prepareStatement(
-                     "INSERT INTO orderItems VALUES(DEFAULT, ?, ?)")) {
+                     INSERT_INTO_ORDERS, Statement.RETURN_GENERATED_KEYS);
+             PreparedStatement psOrderItems = connection.prepareStatement(INSERT_INTO_ORDERITEMS)) {
 
             connection.setAutoCommit(false);
 
@@ -165,9 +176,9 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
 
     @Override
     public boolean addItem2Order(Item item, BigDecimal orderId) {
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
+        try (Connection connection = connectionManager.getConnection();
              PreparedStatement psOrderItems = connection.prepareStatement(
-                     "INSERT INTO orderItems VALUES(DEFAULT, ?, ?)")) {
+                     INSERT_INTO_ORDERITEMS)) {
 
             connection.setAutoCommit(false);
 
@@ -195,9 +206,8 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
 
     @Override
     public boolean deleteItemFromOrder(BigDecimal orderId, BigDecimal itemId) {
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "DELETE FROM orderItems where orderId = (?) and itemId = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(DELETE_FROM_ORDERITEMS)) {
 
             preparedStatement.setBigDecimal(1, orderId);
             preparedStatement.setBigDecimal(2, itemId);
@@ -205,9 +215,9 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
 
             Item changedItem = jdbcItemDao.getItemById(itemId);
             changedItem.setStatus("N");
-            jdbcItemDao.updateItem(changedItem);
-
-            return true;
+            if (jdbcItemDao.updateItem(changedItem).getItemId() != null) {
+                return true;
+            }
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());
         }
@@ -216,10 +226,9 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
 
     @Override
     public Order changeOrder(Order order) {
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "UPDATE orders SET countItems = (?), sum = (?), status = (?)," +
-                             "openDate = (?), executeDate = (?), clientId = (?) where orderId = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_ORDERS)) {
+
             preparedStatement.setInt(1, order.getItems().size());
             preparedStatement.setBigDecimal(2, sum(order.getItems()));
             preparedStatement.setString(3, order.getStatus());
@@ -228,32 +237,35 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
                     null : Timestamp.valueOf(order.getExecuteDate()));
             preparedStatement.setBigDecimal(6, order.getClientId());
             preparedStatement.setBigDecimal(7, order.getOrderId());
-            preparedStatement.executeUpdate();
-
-            return getOrderById(order.getOrderId());
+            if (preparedStatement.executeUpdate() != 1) {
+                throw new SQLException("Проблема при обновлении ордера. Данные не обновились");
+            }
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());
+            return new Order();
         }
         return order;
     }
 
     @Override
     public boolean deleteOrder(BigDecimal orderId) {
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement psOrders = connection.prepareStatement(
-                     "DELETE FROM orders where orderId = (?)");
-             PreparedStatement psOrderItems = connection.prepareStatement(
-                     "DELETE FROM orderItems where orderId = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement psOrders = connection.prepareStatement(DELETE_FROM_ORDER_BY_ID);
+             PreparedStatement psOrderItems = connection.prepareStatement(DELETE_FROM_ORDERITEMS_BY_ORDER_ID)) {
 
             connection.setAutoCommit(false);
             Savepoint init = connection.setSavepoint("init");
 
             try {
                 psOrders.setBigDecimal(1, orderId);
-                psOrders.executeUpdate();
+                if (psOrders.executeUpdate() != 1) {
+                    throw new SQLException("Проблема при удалении ордера. Операция отменена");
+                }
 
                 psOrderItems.setBigDecimal(1, orderId);
-                psOrderItems.executeUpdate();
+                if (psOrderItems.executeUpdate() == 0) {
+                    throw new SQLException("Проблема при удалении ордера. Операция отменена");
+                }
             } catch (SQLException exception) {
                 connection.rollback(init);
                 connection.setAutoCommit(true);
@@ -270,19 +282,19 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
     }
 
 
-    private List<Order> initOrderList(List<Order> orders, CachedRowSet cachedRowSet) throws SQLException {
+    private List<Order> initOrderList(List<Order> orders, ResultSet resultSet) throws SQLException {
         Order order = new Order();
-        while (cachedRowSet.next()) {
-            order.setOrderId(cachedRowSet.getBigDecimal("orderId"));
-            order.setCountItems(cachedRowSet.getInt("countItems"));
-            order.setSum(cachedRowSet.getBigDecimal("sum"));
-            order.setStatus(cachedRowSet.getString("status"));
-            order.setOpenDate(cachedRowSet.getTimestamp("opendate").toLocalDateTime());
-            LocalDateTime executeDate = cachedRowSet.getTimestamp("executeDate") == null ?
-                    null : cachedRowSet.getTimestamp("executeDate").toLocalDateTime();
+        while (resultSet.next()) {
+            order.setOrderId(resultSet.getBigDecimal("orderId"));
+            order.setCountItems(resultSet.getInt("countItems"));
+            order.setSum(resultSet.getBigDecimal("sum"));
+            order.setStatus(resultSet.getString("status"));
+            order.setOpenDate(resultSet.getTimestamp("openDate").toLocalDateTime());
+            LocalDateTime executeDate = resultSet.getTimestamp("executeDate") == null ?
+                    null : resultSet.getTimestamp("executeDate").toLocalDateTime();
             order.setExecuteDate(executeDate);
-            BigDecimal clientId = cachedRowSet.getBigDecimal("clientId") == null ?
-                    new BigDecimal("0") : cachedRowSet.getBigDecimal("clientId");
+            BigDecimal clientId = resultSet.getBigDecimal("clientId") == null ?
+                    new BigDecimal("0") : resultSet.getBigDecimal("clientId");
             order.setClientId(clientId);
             order.setItems(getItemsFromOrder(order.getOrderId()));
 
@@ -294,19 +306,20 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
     private List<Item> getItemsFromOrder(BigDecimal orderId) {
 
         List<Item> items = new ArrayList<>();
+        if (orderId == null) return items;
         Item item;
 
-        try (CachedRowSet cachedRowSet = RowSetProvider.newFactory().createCachedRowSet();
-             Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
+        try (Connection connection = connectionManager.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
-                     "SELECT * FROM orderItems WHERE orderId = (?)")) {
+                     SELECT_ALL_FROM_ORDERITEMS_BY_ORDER_ID)) {
 
             preparedStatement.setBigDecimal(1, orderId);
-            cachedRowSet.populate(preparedStatement.executeQuery());
-
-            while (cachedRowSet.next()) {
-                item = jdbcItemDao.getItemById(cachedRowSet.getBigDecimal("itemId"));
-                items.add(item);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    item = jdbcItemDao.getItemById(resultSet.getBigDecimal("itemId"));
+                    items.add(item);
+                }
+                return items;
             }
         } catch (SQLException exception) {
             LOGGER.error(exception.getMessage());
@@ -315,23 +328,19 @@ public class JdbcOrderDaoImpl implements JdbcOrderDao {
         return items;
     }
 
-    private Order initOrder(BigDecimal clientId, Order order, CachedRowSet cachedRowSet,
-                            PreparedStatement preparedStatement) throws SQLException {
-        preparedStatement.setBigDecimal(1, clientId);
-        cachedRowSet.populate(preparedStatement.executeQuery());
+    private Order initOrder(ResultSet resultSet) throws SQLException {
+        Order order = new Order();
+        order.setOrderId(resultSet.getBigDecimal("orderId"));
+        order.setCountItems(resultSet.getInt("countItems"));
+        order.setSum(resultSet.getBigDecimal("sum"));
+        order.setStatus(resultSet.getString("status"));
+        order.setOpenDate(resultSet.getTimestamp("openDate").toLocalDateTime());
+        LocalDateTime executeDate = resultSet.getTimestamp("executeDate") == null ?
+                null : resultSet.getTimestamp("executeDate").toLocalDateTime();
+        order.setExecuteDate(executeDate);
+        order.setClientId(resultSet.getBigDecimal("clientId"));
+        order.setItems(getItemsFromOrder(order.getOrderId()));
 
-        if (cachedRowSet.next()) {
-            order.setOrderId(cachedRowSet.getBigDecimal("orderId"));
-            order.setCountItems(cachedRowSet.getInt("countItems"));
-            order.setSum(cachedRowSet.getBigDecimal("sum"));
-            order.setStatus(cachedRowSet.getString("status"));
-            order.setOpenDate(cachedRowSet.getTimestamp("openDate").toLocalDateTime());
-            LocalDateTime executeDate = cachedRowSet.getTimestamp("executeDate") == null ?
-                    null : cachedRowSet.getTimestamp("executeDate").toLocalDateTime();
-            order.setExecuteDate(executeDate);
-            order.setClientId(cachedRowSet.getBigDecimal("clientId"));
-            order.setItems(getItemsFromOrder(order.getOrderId()));
-        }
         return order;
     }
 

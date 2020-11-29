@@ -2,6 +2,7 @@ package ru.gorinych3.inetshop.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class Client {
 
@@ -19,6 +20,29 @@ public class Client {
 
     private LocalDateTime registrationDate;
 
+    public Client() {
+    }
+
+    public Client(BigDecimal clientId, String firstName, String lastName, String middleName, String address,
+                  String phoneNumber, LocalDateTime registrationDate) {
+        this.clientId = clientId;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.middleName = middleName;
+        this.address = address;
+        this.phoneNumber = phoneNumber;
+        this.registrationDate = registrationDate;
+    }
+
+    public Client(String firstName, String lastName, String middleName, String address, String phoneNumber,
+                  LocalDateTime registrationDate) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.middleName = middleName;
+        this.address = address;
+        this.phoneNumber = phoneNumber;
+        this.registrationDate = registrationDate;
+    }
 
     public BigDecimal getClientId() {
         return clientId;
@@ -76,6 +100,24 @@ public class Client {
         this.registrationDate = registrationDate;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Client)) return false;
+        Client client = (Client) o;
+        return Objects.equals(clientId, client.clientId) &&
+                Objects.equals(firstName, client.firstName) &&
+                Objects.equals(lastName, client.lastName) &&
+                Objects.equals(middleName, client.middleName) &&
+                Objects.equals(address, client.address) &&
+                Objects.equals(phoneNumber, client.phoneNumber) &&
+                Objects.equals(registrationDate, client.registrationDate);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(clientId, firstName, lastName, middleName, address, phoneNumber, registrationDate);
+    }
 
     @Override
     public String toString() {

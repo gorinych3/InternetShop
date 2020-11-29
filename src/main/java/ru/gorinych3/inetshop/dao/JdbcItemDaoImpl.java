@@ -2,8 +2,7 @@ package ru.gorinych3.inetshop.dao;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.slf4j.MDC;
-import ru.gorinych3.inetshop.connectionmanager.ConnectionManagerJdbcImpl;
+import ru.gorinych3.inetshop.connectionmanager.ConnectionManager;
 import ru.gorinych3.inetshop.dto.Item;
 
 import java.math.BigDecimal;
@@ -16,7 +15,21 @@ import java.util.List;
 @SuppressWarnings("SqlResolve")
 public class JdbcItemDaoImpl implements JdbcItemDao {
 
+    public static final String SELECT_ALL_FROM_ITEMS = "SELECT * FROM items";
+    public static final String SELECT_FROM_ITEMS_BY_ID = "SELECT * FROM items where itemId = (?)";
+    public static final String SELECT_FROM_ITEMS_BY_NAME = "SELECT * FROM items where itemName = (?)";
+    public static final String INSERT_INTO_ITEMS = "INSERT INTO items values (DEFAULT, ?, ?, ?, ?, ?, ?)";
+    public static final String UPDATE_ITEMS = "UPDATE items SET itemName = (?), description = (?), " +
+            "itemCategory = (?), status = (?), itemCost = (?), sellDate = (?) where itemId = (?)";
+    public static final String DELETE_FROM_ITEMS_BY_ID = "DELETE FROM items where itemId = (?)";
+
     private static final Logger LOGGER = LogManager.getLogger(JdbcItemDaoImpl.class.getName());
+
+    private final ConnectionManager connectionManager;
+
+    public JdbcItemDaoImpl(ConnectionManager connectionManager) {
+        this.connectionManager = connectionManager;
+    }
 
     @Override
     public List<Item> getAllItems() {
@@ -24,9 +37,8 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
         List<Item> items = new ArrayList<>();
         Item item;
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "SELECT * FROM items")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FROM_ITEMS)) {
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
                     item = initItem(resultSet);
@@ -43,10 +55,9 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     @Override
     public Item getItemById(BigDecimal itemId) {
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "SELECT * FROM items where itemId = (?)")) {
-            preparedStatement.setLong(1, itemId.longValue());
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_FROM_ITEMS_BY_ID)) {
+            preparedStatement.setBigDecimal(1, itemId);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
                 return initItem(resultSet);
@@ -61,9 +72,8 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     @Override
     public Item getItemByName(String itemName) {
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "SELECT * FROM items where itemName = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_FROM_ITEMS_BY_NAME)) {
             preparedStatement.setString(1, itemName);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
@@ -78,9 +88,9 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     @Override
     public Item addItem(Item item) {
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
+        try (Connection connection = connectionManager.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(
-                     "INSERT INTO items values (DEFAULT, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
+                     INSERT_INTO_ITEMS, Statement.RETURN_GENERATED_KEYS)) {
             preparedStatement.setString(1, item.getItemName());
             preparedStatement.setString(2, item.getDescription());
             preparedStatement.setString(3, item.getCategory());
@@ -103,10 +113,8 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     @Override
     public Item updateItem(Item item) {
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "UPDATE items SET itemName = (?), description = (?), itemCategory = (?)," +
-                             "status = (?), itemCost = (?), sellDate = (?) where itemId = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_ITEMS)) {
             preparedStatement.setString(1, item.getItemName());
             preparedStatement.setString(2, item.getDescription());
             preparedStatement.setString(3, item.getCategory());
@@ -127,13 +135,11 @@ public class JdbcItemDaoImpl implements JdbcItemDao {
     @Override
     public boolean deleteItemById(BigDecimal itemId) {
 
-        try (Connection connection = ConnectionManagerJdbcImpl.getInstance().getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "DELETE FROM items where itemId = (?)")) {
+        try (Connection connection = connectionManager.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(DELETE_FROM_ITEMS_BY_ID)) {
 
             preparedStatement.setBigDecimal(1, itemId);
-            preparedStatement.executeUpdate();
-            return true;
+            return preparedStatement.executeUpdate() == 1;
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());
         }

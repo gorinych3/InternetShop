@@ -15,7 +15,7 @@ public interface JdbcServiceDao {
 
     List<Client> getAllClients();
 
-    Client addNewClient(Client newClient, String login, String password);
+    Client addNewClient(Client newClient);
 
     Client getClientById(BigDecimal clientId);
 
@@ -24,4 +24,6 @@ public interface JdbcServiceDao {
     boolean checkUserRegistrationData(BigDecimal clientId, String login, String password);
 
     boolean changeUserPassword(BigDecimal clientId, String password);
+
+    boolean registrationUser(String login, String password, BigDecimal clientId);
 }
