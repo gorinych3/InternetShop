@@ -2,6 +2,7 @@ package ru.gorinych3.inetshop.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class Item {
 
@@ -109,6 +110,26 @@ public class Item {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Item)) return false;
+        Item item = (Item) o;
+        return Objects.equals(itemId, item.itemId) &&
+                Objects.equals(itemName, item.itemName) &&
+                Objects.equals(description, item.description) &&
+                Objects.equals(category, item.category) &&
+                Objects.equals(cost, item.cost) &&
+                Objects.equals(createDate, item.createDate) &&
+                Objects.equals(sellDate, item.sellDate) &&
+                Objects.equals(status, item.status);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(itemId, itemName, description, category, cost, createDate, sellDate, status);
     }
 
     @Override

@@ -3,6 +3,7 @@ package ru.gorinych3.inetshop.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 public class Order {
 
@@ -99,6 +100,26 @@ public class Order {
 
     public void setItems(List<Item> items) {
         this.items = items;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Order)) return false;
+        Order order = (Order) o;
+        return countItems == order.countItems &&
+                Objects.equals(orderId, order.orderId) &&
+                Objects.equals(sum, order.sum) &&
+                Objects.equals(status, order.status) &&
+                Objects.equals(openDate, order.openDate) &&
+                Objects.equals(executeDate, order.executeDate) &&
+                Objects.equals(clientId, order.clientId) &&
+                Objects.equals(items, order.items);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(orderId, countItems, sum, status, openDate, executeDate, clientId, items);
     }
 
     @Override

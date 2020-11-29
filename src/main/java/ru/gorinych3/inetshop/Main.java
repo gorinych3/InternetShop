@@ -3,6 +3,8 @@ package ru.gorinych3.inetshop;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.slf4j.MDC;
+import ru.gorinych3.inetshop.connectionmanager.ConnectionManager;
+import ru.gorinych3.inetshop.connectionmanager.ConnectionManagerJdbcImpl;
 import ru.gorinych3.inetshop.dao.*;
 import ru.gorinych3.inetshop.dto.Client;
 import ru.gorinych3.inetshop.dto.Item;
@@ -33,24 +35,28 @@ public class Main {
 
     private static final Logger LOGGER = LogManager.getLogger(Main.class.getName());
 
+
     public static void main(String[] args) throws SQLException {
 
+        ConnectionManager connectionManager = ConnectionManagerJdbcImpl.getInstance();
 
+        JdbcItemDao jdbcItemDao = new JdbcItemDaoImpl(connectionManager);
+        JdbcOrderDao jdbcOrderDao = new JdbcOrderDaoImpl(jdbcItemDao, connectionManager);
+        JdbcServiceDao jdbcServiceDao = new JdbcServiceDaoImpl(connectionManager);
 
-        JdbcItemDao jdbcItemDao = new JdbcItemDaoImpl();
-        JdbcOrderDao jdbcOrderDao = new JdbcOrderDaoImpl(jdbcItemDao);
-        JdbcServiceDao jdbcServiceDao = new JdbcServiceDaoImpl();
+        Main main = new Main();
 
         DBUtil.initDatabase();
-        serviceMethod(jdbcServiceDao);
-        itemsMethod(jdbcItemDao);
-        ordersMethod(jdbcOrderDao, jdbcItemDao, jdbcServiceDao);
+        main.serviceMethod(jdbcServiceDao);
+        main.itemsMethod(jdbcItemDao);
+        main.ordersMethod(jdbcOrderDao, jdbcItemDao, jdbcServiceDao);
 
         LOGGER.info("cleanOldOrders {}", jdbcServiceDao.cleanOldOrders());
 
     }
 
-    public static void serviceMethod(JdbcServiceDao jdbcServiceDao) {
+    public void serviceMethod(JdbcServiceDao jdbcServiceDao) {
+
         MDC.put("oper", "serviceMethod");
         Client newClient = new Client();
         newClient.setFirstName("Ivan");
@@ -59,7 +65,8 @@ public class Main {
         newClient.setPhoneNumber("79876543221");
         newClient.setRegistrationDate(LocalDateTime.now());
 
-        Client client = jdbcServiceDao.addNewClient(newClient, "login1", "password1");
+        Client client = jdbcServiceDao.addNewClient(newClient);
+        LOGGER.info(jdbcServiceDao.registrationUser("login1", "password1", client.getClientId()));
 
         LOGGER.info("Client client = {}", client);
 
@@ -80,11 +87,9 @@ public class Main {
 
         LOGGER.info("deleteClient: {}", jdbcServiceDao.deleteClient(new BigDecimal("156")));
         LOGGER.info("deleteClient: {}", jdbcServiceDao.deleteClient(new BigDecimal("2")));
-
-        LOGGER.info("cleanOldOrders: {}", jdbcServiceDao.cleanOldOrders());
     }
 
-    public static void ordersMethod(JdbcOrderDao jdbcOrderDao, JdbcItemDao jdbcItemDao, JdbcServiceDao jdbcServiceDao) {
+    public void ordersMethod(JdbcOrderDao jdbcOrderDao, JdbcItemDao jdbcItemDao, JdbcServiceDao jdbcServiceDao) {
         MDC.put("oper", "ordersMethod");
 
         Client client = jdbcServiceDao.getClientById(new BigDecimal("3"));
@@ -127,13 +132,12 @@ public class Main {
 
         printList(jdbcOrderDao.getOrderByClientId(new BigDecimal("3")));
 
-        LOGGER.info("deleteOrder");
-        jdbcOrderDao.deleteOrder(order.getOrderId());
+        LOGGER.info("deleteOrder = {}", jdbcOrderDao.deleteOrder(order.getOrderId()));
         printList(jdbcOrderDao.getAllOrders());
 
     }
 
-    public static void itemsMethod(JdbcItemDao jdbcItemDao) {
+    public void itemsMethod(JdbcItemDao jdbcItemDao) {
         MDC.put("oper", "itemsMethod");
 
         printList(jdbcItemDao.getAllItems());
@@ -166,7 +170,7 @@ public class Main {
         printList(jdbcItemDao.getAllItems());
     }
 
-    public static <T> void printList(List<T> objects) {
+    public <T> void printList(List<T> objects) {
         LOGGER.info("Show List: ");
         for (T t : objects) {
             LOGGER.info(t);
